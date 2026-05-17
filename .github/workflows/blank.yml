@@ -30,10 +30,40 @@ jobs:
           python-version: "3.10"
 
       # =====================================================
+      # SETUP MINICONDA
+      # =====================================================
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: base
+          auto-activate-base: true
+          python-version: 3.10
+
+      # =====================================================
+      # CHECK ENVIRONMENT
+      # =====================================================
+
+      - name: Check Environment
+        shell: bash -l {0}
+        run: |
+
+          python --version
+
+          pip --version
+
+          conda --version
+
+          pwd
+
+          ls -la
+
+      # =====================================================
       # INSTALL DEPENDENCIES
       # =====================================================
 
       - name: Install Dependencies
+        shell: bash -l {0}
         run: |
 
           pip install --upgrade pip
@@ -49,10 +79,13 @@ jobs:
       # =====================================================
 
       - name: Clean Previous Artifacts
+        shell: bash -l {0}
         run: |
 
           rm -rf mlruns || true
+
           rm -rf mlartifacts || true
+
           rm -f mlflow.db || true
 
       # =====================================================
@@ -60,24 +93,30 @@ jobs:
       # =====================================================
 
       - name: Run MLflow Project
+        shell: bash -l {0}
         env:
           MLFLOW_TRACKING_URI: sqlite:///mlflow.db
         run: |
 
+          conda init bash
+
           mlflow run MLProject \
-          --experiment-name smsml-basic-experiment
+            --experiment-name smsml-basic-experiment
 
       # =====================================================
       # VERIFY GENERATED ARTIFACTS
       # =====================================================
 
       - name: Verify MLflow Artifacts
+        shell: bash -l {0}
         run: |
 
           echo "=== MLRUNS ==="
+
           ls -R mlruns || true
 
           echo "=== MLARTIFACTS ==="
+
           ls -R mlartifacts || true
 
       # =====================================================
@@ -85,6 +124,7 @@ jobs:
       # =====================================================
 
       - name: Get Latest Model Path
+        shell: bash -l {0}
         run: |
 
           MODEL_PATH=$(find mlartifacts \
@@ -96,6 +136,7 @@ jobs:
           echo "MODEL_DIR=$MODEL_DIR" >> $GITHUB_ENV
 
           echo "Detected Model Directory:"
+
           echo "$MODEL_DIR"
 
       # =====================================================
@@ -103,6 +144,7 @@ jobs:
       # =====================================================
 
       - name: Build Docker Image
+        shell: bash -l {0}
         env:
           MLFLOW_TRACKING_URI: sqlite:///mlflow.db
         run: |
@@ -129,6 +171,7 @@ jobs:
       # =====================================================
 
       - name: Tag Docker Image
+        shell: bash -l {0}
         run: |
 
           docker tag smsml-xgboost:v1 \
@@ -139,6 +182,7 @@ jobs:
       # =====================================================
 
       - name: Push Docker Image
+        shell: bash -l {0}
         run: |
 
           docker push \
@@ -161,6 +205,7 @@ jobs:
       # =====================================================
 
       - name: Complete CI Pipeline
+        shell: bash -l {0}
         run: |
 
           echo "SMSML CI Pipeline completed successfully"
