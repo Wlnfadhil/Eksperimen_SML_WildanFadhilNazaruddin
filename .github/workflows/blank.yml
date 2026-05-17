@@ -24,21 +24,10 @@ jobs:
       # SETUP PYTHON
       # =====================================================
 
-      - name: Set up Python 3.10
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-
-      # =====================================================
-      # CHECK ENVIRONMENT
-      # =====================================================
-
-      - name: Check Environment
-        run: |
-          python --version
-          pip --version
-          pwd
-          ls -la
 
       # =====================================================
       # INSTALL DEPENDENCIES
@@ -51,52 +40,32 @@ jobs:
 
           pip install -r requirements.txt
 
-          if [ -f Membangun_model/requirements.txt ]; then
-            pip install -r Membangun_model/requirements.txt
-          fi
-
           pip install mlflow
-          pip install docker
           pip install virtualenv
+          pip install docker
 
       # =====================================================
-      # CLEAN OLD ARTIFACTS
+      # CLEAN PREVIOUS ARTIFACTS
       # =====================================================
 
       - name: Clean Previous Artifacts
         run: |
+
           rm -rf mlruns || true
           rm -rf mlartifacts || true
           rm -f mlflow.db || true
 
       # =====================================================
-      # RUN PREPROCESSING
+      # RUN MLFLOW PROJECT
       # =====================================================
 
-      - name: Run Preprocessing Pipeline
-        run: |
-          python preprocessing/automate_WildanFadhilNazaruddin.py
-
-      # =====================================================
-      # VERIFY GENERATED DATASETS
-      # =====================================================
-
-      - name: Verify Generated Datasets
-        run: |
-
-          echo "=== DATASETS ==="
-
-          ls -R preprocessing/artifacts/datasets
-
-      # =====================================================
-      # RUN MODELLING
-      # =====================================================
-
-      - name: Run MLflow Modelling
+      - name: Run MLflow Project
         env:
           MLFLOW_TRACKING_URI: sqlite:///mlflow.db
         run: |
-          python Membangun_model/modelling.py
+
+          mlflow run MLProject \
+          --experiment-name smsml-basic-experiment
 
       # =====================================================
       # VERIFY GENERATED ARTIFACTS
@@ -106,10 +75,10 @@ jobs:
         run: |
 
           echo "=== MLRUNS ==="
-          ls -R mlruns
+          ls -R mlruns || true
 
-          echo "=== MODEL ARTIFACTS ==="
-          find mlruns -type d -name models
+          echo "=== MLARTIFACTS ==="
+          ls -R mlartifacts || true
 
       # =====================================================
       # GET LATEST MODEL PATH
@@ -118,7 +87,7 @@ jobs:
       - name: Get Latest Model Path
         run: |
 
-          MODEL_PATH=$(find mlruns \
+          MODEL_PATH=$(find mlartifacts \
           -type f \
           -name "MLmodel" | tail -n 1)
 
@@ -130,53 +99,15 @@ jobs:
           echo "$MODEL_DIR"
 
       # =====================================================
-      # VERIFY MODEL REQUIREMENTS
-      # =====================================================
-
-      - name: Verify Model Requirements
-        run: |
-
-          echo "=== REQUIREMENTS ==="
-
-          cat $MODEL_DIR/requirements.txt
-
-          echo "=== CONDA YAML ==="
-
-          cat $MODEL_DIR/conda.yaml
-
-      # =====================================================
-      # UPLOAD ARTIFACTS
-      # =====================================================
-
-      - name: Upload MLflow Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: smsml-mlflow-artifacts
-          path: |
-            mlruns/
-            path: |
-            mlruns/
-            preprocessing/artifacts/
-
-      # =====================================================
-      # CLEAN DOCKER CACHE
-      # =====================================================
-
-      - name: Clean Docker Cache
-        run: |
-          docker system prune -af || true
-
-      # =====================================================
       # BUILD DOCKER IMAGE
       # =====================================================
 
-      - name: Build Docker Model
+      - name: Build Docker Image
         env:
           MLFLOW_TRACKING_URI: sqlite:///mlflow.db
         run: |
 
-          echo "Building Docker from:"
-          echo "$MODEL_DIR"
+          echo "Building Docker Image..."
 
           mlflow models build-docker \
             -m "$MODEL_DIR" \
@@ -214,12 +145,16 @@ jobs:
           ${{ secrets.DOCKER_USERNAME }}/smsml-xgboost:v1
 
       # =====================================================
-      # VERIFY PUSH
+      # UPLOAD MLFLOW ARTIFACTS
       # =====================================================
 
-      - name: Verify Docker Push
-        run: |
-          echo "Docker image pushed successfully"
+      - name: Upload MLflow Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: smsml-mlflow-artifacts
+          path: |
+            mlruns/
+            mlartifacts/
 
       # =====================================================
       # COMPLETE PIPELINE
@@ -227,4 +162,5 @@ jobs:
 
       - name: Complete CI Pipeline
         run: |
+
           echo "SMSML CI Pipeline completed successfully"
